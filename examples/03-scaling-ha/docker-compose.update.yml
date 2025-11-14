@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  web:
+    image: python:3.11-alpine
+    working_dir: /app
+    command: sh -c "pip install flask redis requests && python app.py"
+    ports:
+      - "8080:5000"
+    configs:
+      - source: app-code-v2  # V2のアプリケーションコード
+        target: /app/app.py
+    environment:
+      - REDIS_HOST=redis
+      - VERSION=2.0  # バージョン番号を更新
+    networks:
+      - webnet
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        max_failure_ratio: 0.3
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: pause
+        monitor: 30s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      placement:
+        max_replicas_per_node: 2
+        preferences:
+          - spread: node.labels.zone
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - webnet
+    volumes:
+      - redis-data:/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  webnet:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+
+volumes:
+  redis-data:
+    driver: local
+
+configs:
+  app-code-v2:
+    file: ./app/app-v2.py

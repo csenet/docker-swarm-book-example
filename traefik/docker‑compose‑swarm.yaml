@@ -1,0 +1,121 @@
+services:
+  traefik:
+    image: traefik:v3.4
+
+    networks:
+    # ノード間のコンテナ間通信用に 'traefik_proxy' オーバーレイネットワークに接続
+      - traefik_proxy
+
+    ports:
+        # TraefikのエントリーポイントをSwarmに公開
+        # Swarmではポートに長い構文が必要
+      - target: 80 # コンテナポート（Traefik webエントリーポイント）
+        published: 80 # ノード上に公開されるホストポート
+        protocol: tcp
+        # 'host' モードはタスクが実行されるノードのIPに直接バインド
+        # 'ingress' モードはSwarmのRouting Meshを使用（ノード間でロードバランス）
+        # ロードバランス戦略に基づいて選択。外部LBを使用する場合は 'host' の方がシンプル
+        mode: host
+      - target: 443 # コンテナポート（Traefik websecureエントリーポイント）
+        published: 443 # ホストポート
+        protocol: tcp
+        mode: host
+
+    volumes:
+      # SwarmプロバイダーのためにDockerソケットをマウント
+      # ソケット経由でSwarm APIにアクセスするため、managerノードから実行する必要がある
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # Swarm APIソケット
+      - ./certs:/certs:ro
+      - ./dynamic:/dynamic:ro
+
+    # コマンドライン引数によるTraefik静的設定
+    command:
+      # HTTPエントリーポイント
+      - "--entrypoints.web.address=:80"
+
+      # HTTPからHTTPSへのリダイレクトを設定
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+
+      # HTTPSエントリーポイント
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+
+      # 動的TLSファイルをアタッチ
+      - "--providers.file.filename=/dynamic/tls.yaml"
+
+      # プロバイダー
+
+      # Docker Swarmプロバイダーを有効化（Dockerプロバイダーの代わり）
+      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
+
+      # Swarmサービスの変更を監視（ソケットアクセスが必要）
+      - "--providers.swarm.watch=true"
+
+      # 推奨：デフォルトでサービスを公開しない。明示的なラベルを要求
+      - "--providers.swarm.exposedbydefault=false"
+
+      # Traefikがサービスに接続するためのデフォルトネットワークを指定
+      - "--providers.swarm.network=traefik_traefik_proxy"
+
+      # API & ダッシュボード
+      - "--api.dashboard=true" # ダッシュボードを有効化
+      - "--api.insecure=false" # 安全でないAPIモードを明示的に無効化
+
+      # 可観測性
+      - "--log.level=INFO" # ログレベルを設定（例：INFO、DEBUG）
+      - "--accesslog=true" # アクセスログを有効化
+      - "--metrics.prometheus=true"  # Prometheusを有効化
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+
+      # 配置制約はTraefikタスクが実行できる場所を制限
+      # ソケット経由でSwarm APIにアクセスするため、managerノードでの実行が一般的
+        constraints:
+          - node.role == manager
+
+      # ラベルによるTraefik動的設定
+      # Swarmでは、サービス定義のラベルがそのサービスのTraefikルーティングを設定
+      labels:
+        - "traefik.enable=true"
+
+        # ダッシュボードルーター
+        - "traefik.http.routers.dashboard.rule=Host(`dashboard.swarm.localhost`)"
+        - "traefik.http.routers.dashboard.entrypoints=websecure"
+        - "traefik.http.routers.dashboard.service=api@internal"
+        - "traefik.http.routers.dashboard.tls=true"
+
+        # Basic認証ミドルウェア
+        - "traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$INmPCuoo$$7JANkDdoda5VgQocfryt30"
+        - "traefik.http.routers.dashboard.middlewares=dashboard-auth@swarm"
+
+        # サービスヒント
+        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  # Whoamiアプリケーションをデプロイ
+  whoami:
+    image: traefik/whoami
+    networks:
+      - traefik_proxy
+    deploy:
+      labels:
+        # Traefikのサービスディスカバリーを有効化
+        - "traefik.enable=true"
+        # Whoamiルータールールを定義
+        - "traefik.http.routers.whoami.rule=Host(`whoami.swarm.localhost`)"
+        # HTTPSエントリーポイントでWhoamiを公開
+        - "traefik.http.routers.whoami.entrypoints=websecure"
+        # TLSを有効化
+        - "traefik.http.routers.whoami.tls=true"
+        # TraefikにWhoamiのポート番号を公開
+        - traefik.http.services.whoami.loadbalancer.server.port=80
+
+# Swarm用のオーバーレイネットワークを定義
+networks:
+  traefik_proxy:
+    driver: overlay
+    attachable: true

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .hostname {
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Docker Swarm サービス</h1>
+        <div class="info">
+            <h2>基本的なサービスデプロイ</h2>
+            <p>このページはDocker Swarmでデプロイされたカスタムコンテンツです。</p>
+        </div>
+        <div class="info">
+            <h3>ホスト名（コンテナID）</h3>
+            <p class="hostname" id="hostname">Loading...</p>
+        </div>
+        <div class="info">
+            <h3>タイムスタンプ</h3>
+            <p id="timestamp"></p>
+        </div>
+    </div>
+
+    <script>
+        // ホスト名を表示（ブラウザでは取得できないため固定メッセージ）
+        document.getElementById('hostname').textContent = 'コンテナ内で確認してください';
+
+        // 現在時刻を表示
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('timestamp').textContent = now.toLocaleString('ja-JP');
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

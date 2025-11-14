@@ -1,0 +1,120 @@
+version: "3.8"
+
+services:
+  web:
+    image: python:3.11-alpine
+    working_dir: /app
+    command: sh -c "pip install flask redis requests && python app.py"
+    ports:
+      - "8080:5000"
+    configs:
+      - source: app-code
+        target: /app/app.py
+    environment:
+      - REDIS_HOST=redis
+      - VERSION=1.0
+    networks:
+      - webnet
+    deploy:
+      # レプリカ数の設定
+      replicas: 3
+
+      # ローリングアップデート設定
+      update_config:
+        parallelism: 1          # 同時に更新するコンテナ数
+        delay: 10s              # 更新間隔
+        failure_action: rollback # 失敗時はロールバック
+        monitor: 30s            # 監視期間
+        max_failure_ratio: 0.3  # 30%以上失敗したらロールバック
+        order: start-first      # 新しいコンテナを先に起動
+
+      # ロールバック設定
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: pause
+        monitor: 30s
+
+      # 再起動ポリシー
+      restart_policy:
+        condition: on-failure   # 失敗時のみ再起動
+        delay: 5s               # 再起動までの待機時間
+        max_attempts: 3         # 最大再試行回数
+        window: 120s            # 監視ウィンドウ
+
+      # リソース制限
+      resources:
+        limits:
+          cpus: '0.5'           # CPU上限
+          memory: 512M          # メモリ上限
+        reservations:
+          cpus: '0.25'          # CPU予約
+          memory: 256M          # メモリ予約
+
+      # 配置戦略
+      placement:
+        max_replicas_per_node: 2  # ノードあたり最大2レプリカ
+        preferences:
+          - spread: node.labels.zone  # ゾーンラベルで分散
+
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - webnet
+    volumes:
+      - redis-data:/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager  # マネージャーノードに配置
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # 負荷テスト用ツール
+  loadgen:
+    image: williamyeh/hey:latest
+    command: sh -c "sleep 3600"
+    networks:
+      - webnet
+    deploy:
+      replicas: 0  # デフォルトでは起動しない
+      restart_policy:
+        condition: none
+
+networks:
+  webnet:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"  # 暗号化されたオーバーレイネットワーク
+
+volumes:
+  redis-data:
+    driver: local
+
+configs:
+  app-code:
+    file: ./app/app.py

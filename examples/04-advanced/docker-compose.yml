@@ -1,0 +1,229 @@
+version: "3.8"
+
+services:
+  # Webサーバー（Nginx）
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+        mode: 0444
+    networks:
+      - frontend
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      labels:
+        - "com.example.service=nginx"
+        - "com.example.tier=frontend"
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # アプリケーションサーバー
+  app:
+    image: python:3.11-alpine
+    working_dir: /app
+    command: sh -c "pip install flask redis psycopg2-binary && python app.py"
+    secrets:
+      - db_password
+      - api_key
+    configs:
+      - source: app_code
+        target: /app/app.py
+      - source: app_config
+        target: /app/config.json
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=appuser
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+      - REDIS_HOST=redis
+      - API_KEY_FILE=/run/secrets/api_key
+      - CONFIG_FILE=/app/config.json
+    networks:
+      - frontend
+      - backend
+    deploy:
+      replicas: 3
+      placement:
+        max_replicas_per_node: 2
+        preferences:
+          - spread: node.labels.zone
+      labels:
+        - "com.example.service=app"
+        - "com.example.tier=application"
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQLデータベース
+  postgres:
+    image: postgres:15-alpine
+    secrets:
+      - db_password
+    environment:
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - POSTGRES_DB=appdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.ssd == true
+      labels:
+        - "com.example.service=postgres"
+        - "com.example.tier=database"
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redisキャッシュ
+  redis:
+    image: redis:7-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    configs:
+      - source: redis_config
+        target: /usr/local/etc/redis/redis.conf
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "com.example.service=redis"
+        - "com.example.tier=cache"
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 管理ツール
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8081:8080"
+    networks:
+      - backend
+      - admin
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "com.example.service=adminer"
+        - "com.example.tier=admin"
+
+networks:
+  # フロントエンドネットワーク（公開）
+  frontend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    labels:
+      - "com.example.network=frontend"
+
+  # バックエンドネットワーク（内部）
+  backend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    internal: false  # 外部通信が必要な場合はfalse
+    labels:
+      - "com.example.network=backend"
+
+  # 管理ネットワーク
+  admin:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    labels:
+      - "com.example.network=admin"
+
+volumes:
+  postgres-data:
+    driver: local
+    labels:
+      - "com.example.volume=postgres-data"
+
+  redis-data:
+    driver: local
+    labels:
+      - "com.example.volume=redis-data"
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  api_key:
+    file: ./secrets/api_key.txt
+
+configs:
+  nginx_config:
+    file: ./nginx/nginx.conf
+  app_code:
+    file: ./app/app.py
+  app_config:
+    file: ./configs/app_config.json
+  redis_config:
+    file: ./configs/redis.conf

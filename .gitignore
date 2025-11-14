@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+backup/
+
+# Temporary files
+*.tmp
+tmp/
+
+# Secrets (本番環境では別管理推奨)
+# secrets/*.txt は学習用のため除外しない
+
+# Node modules（もし使用する場合）
+node_modules/
+
+# Data directories
+data/
+*.db
+*.sqlite
+
+# Environment files
+.env
+.env.local

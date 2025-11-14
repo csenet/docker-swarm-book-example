@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  # Webサーバー
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    networks:
+      - webnet
+    deploy:
+      replicas: 2
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    networks:
+      - webnet
+    deploy:
+      replicas: 1
+
+networks:
+  webnet:
+    driver: overlay

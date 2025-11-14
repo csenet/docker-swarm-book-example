@@ -1,0 +1,24 @@
+{
+  "app_name": "Docker Swarm Advanced Example",
+  "version": "1.0.0",
+  "environment": "production",
+  "features": {
+    "secrets": true,
+    "configs": true,
+    "volumes": true,
+    "networks": true,
+    "ha": true
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": 300
+  },
+  "database": {
+    "pool_size": 10,
+    "timeout": 30
+  },
+  "api": {
+    "rate_limit": 100,
+    "timeout": 60
+  }
+}
