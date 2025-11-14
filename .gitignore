@@ -52,3 +52,7 @@ data/
 # Environment files
 .env
 .env.local
+
+certs/
+.crt
+.key
