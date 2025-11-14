@@ -1,4 +1,4 @@
 nginx:
-  repo: swarm-cd-example
+  repo: docker-swarm-book-example
   branch: main
   compose_file: nginx/compose.yaml
