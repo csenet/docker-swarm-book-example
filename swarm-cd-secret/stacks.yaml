@@ -2,7 +2,6 @@ nginx:
   repo: docker-swarm-book-example
   branch: main
   compose_file: nginx-ssl/compose.yaml
-  # なしでも自動で検知してくれる
-  # sops_files: 
-  # - nginx-ssl/secrets/www.example.com.crt
-  # - nginx-ssl/secrets/www.example.com.key
+  sops_files: 
+  - nginx-ssl/secrets/www.example.com.crt
+  - nginx-ssl/secrets/www.example.com.key
