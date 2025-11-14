@@ -1,0 +1,2 @@
+swarm-cd-example:
+  url: "https://github.com/csenet/docker-swarm-book-example.git"

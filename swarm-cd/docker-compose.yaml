@@ -1,0 +1,26 @@
+version: '3.7'
+services:
+  swarm-cd:
+    image: ghcr.io/m-adawi/swarm-cd:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./repos.yaml:/app/repos.yaml:ro
+      - ./stacks.yaml:/app/stacks.yaml:ro
+    # traefik setting
+    networks:
+      - traefik_proxy
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        # Traefikのサービスディスカバリーを有効化
+        - "traefik.enable=true"
+        # Swarm-CDルータールールを定義
+        - "traefik.http.routers.swarm-cd.rule=Host(`swarm-cd.swarm.internal`)"
+        # HTTPSエントリーポイントでSwarm-CDを公開
+        - "traefik.http.routers.swarm-cd.entrypoints=websecure"
+        # TLSを有効化
+        - "traefik.http.routers.swarm-cd.tls=true"
+        # TraefikにSwarm-CDのポート番号を公開
+        - traefik.http.services.swarm-cd.loadbalancer.server.port=8080
