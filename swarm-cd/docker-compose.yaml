@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   swarm-cd:
-    image: ghcr.io/m-adawi/swarm-cd:latest
+    image: ghcr.io/m-adawi/swarm-cd:1.9.0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./repos.yaml:/app/repos.yaml:ro
