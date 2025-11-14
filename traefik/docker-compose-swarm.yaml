@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.5
+    image: traefik:v3.6.1
 
     networks:
     # ノード間のコンテナ間通信用に 'traefik_proxy' オーバーレイネットワークに接続
