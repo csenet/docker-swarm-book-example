@@ -3,8 +3,11 @@ services:
     image: ghcr.io/m-adawi/swarm-cd:1.9.0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./repos.yaml:/app/repos.yaml:ro
-      - ./stacks.yaml:/app/stacks.yaml:ro
+    configs:
+      - source: swarm-cd-repos
+        target: /app/repos.yaml
+      - source: swarm-cd-stacks
+        target: /app/stacks.yaml
     # traefik setting
     # networks:
     #   - traefik_proxy
@@ -12,7 +15,6 @@ services:
       placement:
         constraints:
           - node.role == manager
-          - node.hostname == swarm-01
       # labels:
       #   # Traefikのサービスディスカバリーを有効化
       #   - "traefik.enable=true"
@@ -29,3 +31,9 @@ services:
 #   traefik_proxy:
 #     driver: overlay
 #     attachable: true
+
+configs:
+  swarm-cd-repos:
+    external: true
+  swarm-cd-stacks:
+    external: true
