@@ -8,8 +8,6 @@ services:
         target: /app/repos.yaml
       - source: swarm-cd-stacks
         target: /app/stacks.yaml
-      - source: swarm-cd-config
-        target: /app/config.yaml
     # traefik setting
     networks:
       - traefik_proxy
@@ -40,6 +38,4 @@ configs:
   swarm-cd-repos:
     external: true
   swarm-cd-stacks:
-    external: true
-  swarm-cd-config:
     external: true
