@@ -67,9 +67,6 @@ services:
       - "--log.level=INFO" # ログレベルを設定（例：INFO、DEBUG）
       - "--accesslog=true" # アクセスログを有効化
       - "--metrics.prometheus=true"  # Prometheusを有効化
-    
-    environment:
-      - Environment=DOCKER_MIN_API_VERSION=1.24
 
     deploy:
       mode: replicated
