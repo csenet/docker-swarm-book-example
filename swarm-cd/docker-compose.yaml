@@ -24,3 +24,8 @@ services:
         - "traefik.http.routers.swarm-cd.tls=true"
         # TraefikにSwarm-CDのポート番号を公開
         - traefik.http.services.swarm-cd.loadbalancer.server.port=8080
+
+networks:
+  traefik_proxy:
+    driver: overlay
+    attachable: true
