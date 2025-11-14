@@ -10,7 +10,7 @@ services:
         target: /app/stacks.yaml
     # traefik setting
     networks:
-      - traefik_proxy
+      - traefik_traefik_proxy
     deploy:
       placement:
         constraints:
